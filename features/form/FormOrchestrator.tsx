@@ -12,22 +12,15 @@ import { GlowEffect } from '@/components/brand/GlowEffect'
 import { QuestionView } from './QuestionView'
 import { ChapterTransition } from './ChapterView'
 import { SuccessView } from './SuccessView'
+import { NameScreen } from './NameScreen'
+import { submitResponse } from '@/lib/supabase'
 
-type UIPhase = 'chapter-intro' | 'question'
+type UIPhase = 'name' | 'chapter-intro' | 'question' | 'submitting' | 'submitted'
 
 const questionVariants = {
-  enter: (dir: number) => ({
-    x: dir > 0 ? 56 : -56,
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-  },
-  exit: (dir: number) => ({
-    x: dir > 0 ? -56 : 56,
-    opacity: 0,
-  }),
+  enter: (dir: number) => ({ x: dir > 0 ? 56 : -56, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? -56 : 56, opacity: 0 }),
 }
 
 export function FormOrchestrator() {
@@ -48,28 +41,29 @@ export function FormOrchestrator() {
 
   useChapterTheme(currentChapter)
 
-  const [uiPhase, setUIPhase] = useState<UIPhase>('chapter-intro')
+  const [uiPhase, setUIPhase] = useState<UIPhase>('name')
+  const [nombre, setNombre] = useState('')
+  const [submitError, setSubmitError] = useState('')
   const prevChapterRef = useRef(-1)
 
-  // When chapterIndex changes (from goNext crossing a chapter boundary),
-  // show the chapter intro screen before questions
+  // Detect chapter changes to show intro
   useEffect(() => {
-    if (!isHydrated) return
+    if (!isHydrated || uiPhase === 'name') return
     if (state.chapterIndex !== prevChapterRef.current) {
       if (prevChapterRef.current !== -1) {
-        // Genuine chapter change — show intro
         setUIPhase('chapter-intro')
       }
       prevChapterRef.current = state.chapterIndex
     }
-  }, [state.chapterIndex, isHydrated])
+  }, [state.chapterIndex, isHydrated, uiPhase])
 
+  // Loading
   if (!isHydrated) {
     return (
       <div className="min-h-screen bg-intra-bg flex items-center justify-center">
         <motion.div
           className="w-5 h-5 rounded-full border-2 border-intra-border"
-          style={{ borderTopColor: 'var(--chapter-accent)' }}
+          style={{ borderTopColor: '#e34b03' }}
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
         />
@@ -77,17 +71,33 @@ export function FormOrchestrator() {
     )
   }
 
-  if (state.isSubmitted) {
-    return <SuccessView />
+  // Success
+  if (uiPhase === 'submitted') return <SuccessView nombre={nombre} />
+
+  // Name screen
+  if (uiPhase === 'name') {
+    return (
+      <NameScreen
+        onContinue={(n) => {
+          setNombre(n)
+          prevChapterRef.current = -1
+          setUIPhase('chapter-intro')
+        }}
+      />
+    )
   }
 
+  // Chapter intro
   if (uiPhase === 'chapter-intro') {
     return (
       <AnimatePresence mode="wait">
         <ChapterTransition
           key={`intro-${currentChapter.id}`}
           chapter={currentChapter}
-          onContinue={() => setUIPhase('question')}
+          onContinue={() => {
+            prevChapterRef.current = state.chapterIndex
+            setUIPhase('question')
+          }}
         />
       </AnimatePresence>
     )
@@ -95,27 +105,55 @@ export function FormOrchestrator() {
 
   if (!currentQuestion) return null
 
+  // Handle final submit with Supabase
+  const handleNext = async () => {
+    if (isFinalQuestion) {
+      const prevChIdx = state.chapterIndex
+      const success = goNext()
+      if (!success) return
+
+      setUIPhase('submitting')
+      setSubmitError('')
+
+      const { success: ok, error } = await submitResponse(nombre, state.answers)
+
+      if (!ok) {
+        setSubmitError(error ?? 'Error al guardar. Intentá de nuevo.')
+        setUIPhase('question')
+        return
+      }
+
+      setUIPhase('submitted')
+    } else {
+      const prevChIdx = state.chapterIndex
+      goNext()
+    }
+  }
+
   const currentChapterQuestions = currentChapter.questions
 
-  return (
-    <div
-      className="min-h-screen bg-intra-bg relative overflow-hidden flex flex-col"
-    >
-      {/* Ambient glow — color shifts with chapter */}
-      <GlowEffect
-        color={currentChapter.accent}
-        size="xl"
-        position="top-right"
-        opacity={0.07}
-      />
-      <GlowEffect
-        color={currentChapter.accent}
-        size="md"
-        position="bottom-left"
-        opacity={0.04}
-      />
+  // Submitting overlay
+  if (uiPhase === 'submitting') {
+    return (
+      <div className="min-h-screen bg-intra-bg flex items-center justify-center flex-col gap-6">
+        <motion.div
+          className="w-8 h-8 rounded-full border-2 border-intra-border"
+          style={{ borderTopColor: currentChapter.accent }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+        />
+        <p className="text-intra-muted text-sm tracking-wide">Guardando tu experiencia...</p>
+      </div>
+    )
+  }
 
-      {/* Progress bar */}
+  return (
+    <div className="min-h-screen bg-intra-bg relative overflow-hidden flex flex-col">
+      {/* Glows */}
+      <GlowEffect color={currentChapter.accent} size="xl" position="top-right" opacity={0.07} />
+      <GlowEffect color={currentChapter.accent} size="md" position="bottom-left" opacity={0.04} />
+
+      {/* Progress */}
       <ProgressBar
         chapterIndex={state.chapterIndex}
         questionIndex={state.questionIndex}
@@ -123,14 +161,11 @@ export function FormOrchestrator() {
       />
 
       {/* Header */}
-      <Header
-        chapterTitle={currentChapter.title}
-        chapterNumber={currentChapter.number}
-      />
+      <Header chapterTitle={currentChapter.title} chapterNumber={currentChapter.number} />
 
-      {/* Main content */}
+      {/* Main */}
       <main className="flex-1 flex flex-col justify-center px-6 sm:px-10 md:px-16 lg:px-24 pt-28 pb-32">
-        {/* Decorative chapter number */}
+        {/* Decorative number */}
         <div
           className="absolute right-0 top-1/2 -translate-y-1/2 select-none pointer-events-none overflow-hidden"
           aria-hidden="true"
@@ -139,12 +174,7 @@ export function FormOrchestrator() {
             <motion.span
               key={currentChapter.number}
               className="font-black leading-none block"
-              style={{
-                fontSize: 'clamp(140px, 22vw, 280px)',
-                color: currentChapter.accent,
-                opacity: 0,
-                transform: 'translateX(25%)',
-              }}
+              style={{ fontSize: 'clamp(140px, 22vw, 280px)', color: currentChapter.accent, opacity: 0, transform: 'translateX(25%)' }}
               animate={{ opacity: 0.045 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
@@ -154,7 +184,7 @@ export function FormOrchestrator() {
           </AnimatePresence>
         </div>
 
-        {/* Animated question */}
+        {/* Question */}
         <div className="relative z-10 w-full max-w-3xl">
           <AnimatePresence mode="wait" custom={state.direction}>
             <motion.div
@@ -173,7 +203,7 @@ export function FormOrchestrator() {
                 question={currentQuestion}
                 value={currentAnswer}
                 onChange={(val) => setAnswer(currentQuestion.id, val)}
-                error={state.error}
+                error={submitError || state.error}
                 questionNumber={state.questionIndex + 1}
                 totalInChapter={currentChapterQuestions.length}
               />
@@ -182,12 +212,10 @@ export function FormOrchestrator() {
         </div>
       </main>
 
-      {/* Bottom navigation */}
+      {/* Navigation */}
       <motion.nav
         className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between px-6 sm:px-10 py-5 sm:py-6"
-        style={{
-          background: 'linear-gradient(to top, #07080d 55%, rgba(7,8,13,0.8) 80%, transparent)',
-        }}
+        style={{ background: 'linear-gradient(to top, #07080d 55%, rgba(7,8,13,0.8) 80%, transparent)' }}
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.5 }}
@@ -206,8 +234,8 @@ export function FormOrchestrator() {
           <span className="hidden sm:block tracking-wide">Anterior</span>
         </motion.button>
 
-        {/* Dot indicators */}
-        <div className="flex items-center gap-2" role="tablist" aria-label="Progreso del capítulo">
+        {/* Dots */}
+        <div className="flex items-center gap-2" role="tablist">
           {currentChapterQuestions.map((_, i) => (
             <motion.div
               key={i}
@@ -225,10 +253,7 @@ export function FormOrchestrator() {
               animate={{
                 width: i === state.questionIndex ? 20 : 6,
                 height: 6,
-                boxShadow:
-                  i === state.questionIndex
-                    ? `0 0 8px ${currentChapter.accent}80`
-                    : 'none',
+                boxShadow: i === state.questionIndex ? `0 0 8px ${currentChapter.accent}80` : 'none',
               }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             />
@@ -237,18 +262,14 @@ export function FormOrchestrator() {
 
         {/* Next */}
         <motion.button
-          onClick={goNext}
+          onClick={handleNext}
           className="flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-semibold transition-all duration-200 focus-visible:outline-none tracking-wide"
           style={{
             color: currentChapter.accent,
             background: `${currentChapter.accent}15`,
             border: `1px solid ${currentChapter.accent}40`,
           }}
-          whileHover={{
-            scale: 1.03,
-            background: `${currentChapter.accent}20`,
-            borderColor: `${currentChapter.accent}60`,
-          }}
+          whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           aria-label={isFinalQuestion ? 'Finalizar y enviar' : 'Siguiente pregunta'}
         >

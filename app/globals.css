@@ -16,6 +16,11 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
+}
+
 html,
 body {
   background-color: var(--bg);
@@ -131,4 +136,19 @@ input[type='checkbox'] {
 .no-transition,
 .no-transition * {
   transition: none !important;
+}
+
+/* Work marquee */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 36s linear infinite;
+  width: max-content;
 }

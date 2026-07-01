@@ -38,13 +38,15 @@ export default function LandingPage() {
 
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-8 sm:px-12 pt-10">
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <IntraLogo size="sm" animated />
-        </motion.div>
+        <Link href="/" aria-label="Volver al sitio de INTRA">
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <IntraLogo size="sm" animated />
+          </motion.div>
+        </Link>
 
         <motion.div
           initial={{ opacity: 0 }}
@@ -121,7 +123,7 @@ export default function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <Link href="/experience" aria-label="Iniciar la experiencia INTRA">
+          <Link href="/experience/start" aria-label="Iniciar la experiencia INTRA">
             <motion.span
               className="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-base font-semibold transition-all duration-300 cursor-pointer"
               style={{

@@ -2,21 +2,21 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'INTRA — La profundidad en la experiencia',
+  title: 'INTRA — Multimedia Agency',
   description:
-    'Una experiencia de introspección guiada. Cuatro capítulos que exploran quién sos a través de tu historia.',
-  keywords: ['INTRA', 'experiencia', 'introspección', 'agencia creativa', 'multimedia'],
+    'Colectivo creativo especializado en animación, diseño 3D y producción audiovisual. No hacemos contenido: construimos experiencias.',
+  keywords: ['INTRA', 'agencia creativa', 'multimedia', 'animación', 'diseño 3D', 'producción audiovisual'],
   authors: [{ name: 'INTRA Multimedia Agency' }],
   openGraph: {
-    title: 'INTRA — La profundidad en la experiencia',
-    description: 'Una experiencia de introspección guiada.',
+    title: 'INTRA — Multimedia Agency',
+    description: 'La profundidad en la experiencia.',
     type: 'website',
     locale: 'es_AR',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'INTRA — La profundidad en la experiencia',
-    description: 'Una experiencia de introspección guiada.',
+    title: 'INTRA — Multimedia Agency',
+    description: 'La profundidad en la experiencia.',
   },
 }
 

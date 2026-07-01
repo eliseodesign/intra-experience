@@ -41,7 +41,7 @@ export async function submitResponse(
     ),
   }
 
-  const { error } = await supabase.from('responses').insert(row)
+  const { error } = await supabase.from('responses-INTRA').insert(row)
 
   if (error) {
     console.error('Supabase insert error:', error)
